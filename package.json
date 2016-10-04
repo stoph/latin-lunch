@@ -1,0 +1,17 @@
+{
+  "name": "latin_lunch",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "moment": "^2.15.1",
+    "request": "^2.75.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Christoph Khouri",
+  "license": "ISC"
+}
