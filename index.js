@@ -1,33 +1,9 @@
 
-/*
-TestIntent what is for lunch
-TestIntent what's for lunch
-
-HelloWorld - arn:aws:lambda:us-east-1:452114835050:function:HelloWorld
-Latin-lunch - arn:aws:lambda:us-east-1:452114835050:function:latin-lunch
-{
-  "intents": [
-      {
-      "intent": "TestIntent"
-    },
-    {
-      "intent": "GetLunchIntent",
-      "slots": [
-        {
-          "name": "Date",
-          "type": "AMAZON.DATE"
-        }
-      ]
-    }
-  ]
-}
-
-
-*/
-
 var moment = require('moment');
 var request = require('request');
 var cheerio = require('cheerio');
+
+//curl 'http://www.myschooldining.com/Latin/calendarWeek' -H 'Pragma: no-cache' -H 'Origin: http://www.myschooldining.com' -H 'Accept-Encoding: gzip, deflate' -H 'Accept-Language: en-US,en;q=0.8,de;q=0.6,fr;q=0.4,ar;q=0.2' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.98 Safari/537.36' -H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' -H 'Accept: */*' -H 'Cache-Control: no-cache' -H 'X-Requested-With: XMLHttpRequest' -H 'Connection: keep-alive' -H 'Referer: http://www.myschooldining.com/Latin' -H 'DNT: 1' --data 'current_day=Wed+Dec+07+2016+14%3A32%3A01+GMT-0500+(EST)&adj=0' --compressed
 
 var url = "http://www.myschooldining.com/Latin/calendarWeek";
 var headers = {
@@ -99,18 +75,20 @@ function onIntent(intentRequest, session, callback) {
         intentName = intentRequest.intent.name;
 
     console.log("Called intent: " + intentName)
-    // Dispatch to your skill's intent handlers
-    if ("GetLunchIntent" === intentName) {
-        getLunchResponse(intent, session, callback);
-    }  else {
-        throw "Invalid intent";
+
+    switch(intentName) {
+        case "GetLunchIntent":
+            getLunchResponse(intent, session, callback);
+            break;
+        case "GetLunchWeekIntent":
+            getLunchWeekIntent(intent, session, callback);
+            break;
+        default:
+            throw "Invalid intent";
     }
+
 }
 
-/**
- * Called when the user ends the session.
- * Is not called when the skill returns shouldEndSession=true.
- */
 function onSessionEnded(sessionEndedRequest, session) {
     console.log("onSessionEnded requestId=" + sessionEndedRequest.requestId + ", sessionId=" + session.sessionId);
     // Add cleanup logic here
@@ -129,14 +107,7 @@ function getWelcomeResponse(callback) {
     callback(sessionAttributes, buildSpeechletResponse(cardTitle, speechOutput, repromptText, shouldEndSession));
 }
 
-
-function getLunchResponse(intent, session, callback) {
-    var cardTitle = intent.name;
-    var repromptText = null;
-    var sessionAttributes = {};
-    var shouldEndSession = true;
-    var speechOutput = "Latin lunch";
-
+function getDateInfo(intent) {
     var d = new Date();
     var requestedDate = d.toISOString();
     
@@ -163,30 +134,82 @@ function getLunchResponse(intent, session, callback) {
 
         console.log("when:" + when + ", current_day:" + current_day + ", date_id:" + date_id)
 
+    }
+
+    var dateInfo = {
+        current_day: current_day,
+        date_id: date_id,
+        when: when
+    }
+
+    return dateInfo;
+
 }
 
-    var form = {
-        current_day: current_day,
-        adj: 0
-    };
+function getLunchResponse(intent, session, callback) {
+    var cardTitle = intent.name;
+    var repromptText = null;
+    var sessionAttributes = {};
+    var shouldEndSession = true;
+    var speechOutput = "Latin lunch";
 
+    var dateInfo = getDateInfo(intent);
+
+    var form = {
+        current_day: dateInfo.current_day,
+        adj: 0
+    }
 
     request.post({ url: url, form: form, headers: headers }, function(err, resp, data) {
-        var $ = cheerio.load(data);
-        var lunch_source = $('#' + date_id + ' #lowerschool_lunch_hotmeal .item');
+        var $ = cheerio.load(data, {
+            normalizeWhitespace: true
+        });
+        var lunch_source = $('#' + dateInfo.date_id + ' #lowerschool_lunch_hotmeal .item');
         var lunch = lunch_source.text();
 
         // Remove multi new lines and leading/trailing spaces, as well as indicators for vegetarian, gluten free, etc.
         lunch = lunch.replace(/^\s+|\s*$|\s?\*.*$/mg, "").replace(/(\r\n|\n|\r)/gm,", ");
-        lunch = "Lunch for " + when + " is " + lunch;
+        lunch = "Lunch for " + dateInfo.when + " is " + lunch;
         callback(sessionAttributes, buildSpeechletResponse(intent.name, lunch, repromptText, shouldEndSession));
     })
-
-
-    // Setting repromptText to null signifies that we do not want to reprompt the user.
-    // If the user does not respond or says something that is not understood, the session
-    // will end.
     
+}
+
+function getLunchWeekIntent(intent, session, callback) {
+    var cardTitle = intent.name;
+    var repromptText = null;
+    var sessionAttributes = {};
+    var shouldEndSession = true;
+    var speechOutput = "Latin lunch";
+
+    var thisWednesdayFullDate = moment().startOf("week").add(3, 'days').format("YYYY-MM-DD")
+
+    var form = {
+        current_day: thisWednesdayFullDate,
+        adj: 0
+    }
+
+    request.post({ url: url, form: form, headers: headers }, function(err, resp, data) {
+        var $ = cheerio.load(data, {
+            normalizeWhitespace: true
+        });
+        var lunchWeek = "Lunch for this week is: ";
+        for (i = 1; i < 6; i++) { 
+            
+            //var fullDate =moment().startOf("week").add(i, 'days').format("YYYY-MM-DD")
+            var dateId = moment().startOf("week").add(i, 'days').format("MDYY");
+            var day = moment().startOf("week").add(i, 'days').format("dddd");
+
+            var lunch = $('#' + dateId + ' #lowerschool_lunch_hotmeal .item').first().text();
+            if (lunch) {
+                // Remove multi new lines and leading/trailing spaces, as well as indicators for vegetarian, gluten free, etc.
+                lunch = lunch.replace(/^\s+|\s*$|\s?\*.*$/mg, "").replace(/(\r\n|\n|\r)/gm,", ");
+                lunchWeek = lunchWeek + day + ", " + lunch + ". ";
+            }
+
+        }
+        callback(sessionAttributes, buildSpeechletResponse(intent.name, lunchWeek, repromptText, shouldEndSession));
+    })
 }
 
 // --------------- Helpers that build all of the responses -----------------------
