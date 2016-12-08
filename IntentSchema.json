@@ -1,0 +1,16 @@
+{
+  "intents": [
+    {
+      "intent": "GetLunchIntent",
+      "slots": [
+        {
+          "name": "Date",
+          "type": "AMAZON.DATE"
+        }
+      ]
+    },
+    {
+      "intent": "GetLunchWeekIntent"
+    }
+  ]
+}
