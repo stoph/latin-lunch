@@ -1,24 +1,3 @@
-Intent Schema
-
-{
-  "intents": [
-    {
-      "intent": "GetLunchIntent",
-      "slots": [
-        {
-          "name": "Date",
-          "type": "AMAZON.DATE"
-        }
-      ]
-    },
-    {
-      "intent": "GetLunchWeekIntent"
-    }
-  ]
-}
-
-Sample Utterances
-
 GetLunchIntent what's for lunch
 GetLunchIntent what's for lunch {Date}
 GetLunchIntent what's for lunch for {Date}
